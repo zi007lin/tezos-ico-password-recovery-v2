@@ -1,4 +1,3 @@
-```markdown
 # Tezos ICO Password Recovery Tool v2
 
 ![Tezos Logo](assets/tz_recovery.png)
@@ -125,6 +124,69 @@ python src/PassRecoveryMain.py --email your.email@example.com --mnemonic "word1 
 3. Command Line Arguments
 4. GUI Input (lowest)
 
+## 💻 Development Setup
+
+### Visual Studio Code Configuration
+
+For VS Code users, here's a sample `.vscode/launch.json` configuration for debugging:
+
+```json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Password Recovery (UI)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "src/PassRecoveryMain.py",
+            "args": [
+                "--email",
+                "example@example.com",
+                "--mnemonic",
+                "word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12 word13 word14",
+                "--address",
+                "tz1exampleAddressxxxxxxxxxxxxxxxxxxx",
+                "--comp1",
+                "optional_component1",
+                "--comp2",
+                "optional_component2",
+                "--comp3",
+                "optional_component3",
+                "--comp4",
+                "optional_component4"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Password Recovery (No UI)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "src/PassRecoveryMain.py",
+            "args": [
+                "--noui",
+                "--email",
+                "example@example.com",
+                "--mnemonic",
+                "word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12 word13 word14",
+                "--address",
+                "tz1exampleAddressxxxxxxxxxxxxxxxxxxx",
+                "--comp1",
+                "optional_component1",
+                "--comp2",
+                "optional_component2",
+                "--comp3",
+                "optional_component3",
+                "--comp4",
+                "optional_component4"
+            ],
+            "console": "integratedTerminal"
+        }
+    ]
+}
+```
+
+Note: Replace the placeholder values with your actual test data. The components (comp1-4) are optional and can be left empty if not needed.
+
 ## 📊 Password Recovery Process
 
 1. **Input Parameters**: Provide your email, mnemonic phrase, and Tezos address
@@ -223,7 +285,9 @@ Project Link: [https://github.com/zilin/tezos-ico-password-recovery-v2](https://
 ---
 
 ⭐️ If this tool helped you recover your Tezos ICO password, please consider starring the repository!
-```
+
+## Technical Overview
+
 This application is built using:
 
 - **Python 3.8+** as the core programming language
