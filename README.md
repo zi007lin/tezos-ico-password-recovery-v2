@@ -1,4 +1,4 @@
-# Tezos ICO Password Recovery Tool v2
+# TEPRV2 -  Tezos ICO Password Recovery Tool v2
 
 ![Tezos Logo](assets/tz_recovery.png)
 
