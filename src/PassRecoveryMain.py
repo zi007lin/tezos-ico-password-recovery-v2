@@ -13,7 +13,7 @@ from models.password_recovery import (
     PasswordComponents,
     PasswordAttempt,
 )
-from ui.passrecoverywindow import PassRecoveryWindow  # Updated import name
+from ui.passrecoverywindow import PassRecoveryWindow  # Use existing class name
 from config import load_config
 
 
@@ -145,9 +145,25 @@ class PasswordRecoveryThread(QThread):
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, model, params=None, parent=None):
         super().__init__(parent)
+
+        # Load configuration with proper precedence
+        self.config = load_config()
+
+        # Initialize position tracker
+        self.current_position = 0
+
         self.model = model
         self.ui = PassRecoveryWindow()
-        self.ui.setupUi(self)  # Pass self as the argument
+        self.ui.setupUi(self)
+
+        # Set UI fields from config using setText() for QLineEdit
+        self.ui.emailInput.setText(self.config["email"])
+        self.ui.mnemonicInput.setText(self.config["mnemonic"])
+        self.ui.addressInput.setText(self.config["address"])
+        self.ui.comp1Input.setText(self.config["comp1"])
+        self.ui.comp2Input.setText(self.config["comp2"])
+        self.ui.comp3Input.setText(self.config["comp3"])
+        self.ui.comp4Input.setText(self.config["comp4"])
 
         # Recovery thread
         self.recovery_thread = None
@@ -159,6 +175,13 @@ class MainWindow(QtWidgets.QMainWindow):
         # Connect UI signals
         self.setup_connections()
         logger.info("PassRecoveryWindow initialized")
+
+        # Set up model and connect signals
+        self.model.check_signal.connect(self.on_check_result)
+
+        # Set signal rate from params or use default
+        if params and "signal_rate" in params:
+            self.model.set_signal_rate(params["signal_rate"])
 
     def connect_thread_signals(self, recovery_thread: PasswordRecoveryThread):
         """Connect thread signals to UI updates"""
@@ -244,22 +267,24 @@ class MainWindow(QtWidgets.QMainWindow):
                 comp4=self.ui.comp4Input.text(),
             )
 
-            # Start new recovery thread if not running
-            if not self.recovery_thread or not self.recovery_thread.isRunning():
-                self.recovery_thread = PasswordRecoveryThread(self.model)
-                self.connect_thread_signals(self.recovery_thread)
-                self.recovery_thread.start()
-                self.ui.startButton.setText("Stop")
-                self.ui.statusLabel.setText("Recovery running...")
-            else:
-                # Stop if already running
-                self.recovery_thread.stop()
-                self.recovery_thread.wait()
-                self.recovery_thread = None
-                self.ui.startButton.setText("Start")
-                self.ui.statusLabel.setText("Recovery stopped")
+            # Toggle running state
+            if not hasattr(self, "running_state"):
+                self.running_state = False
 
-            logger.info("Start/Stop button clicked")
+            self.running_state = not self.running_state
+
+            if self.running_state:
+                # Starting new session
+                self.ui.startButton.setText("Stop")
+                self.ui.statusLabel.setText(
+                    "Running - use Test button for next attempt"
+                )
+                logger.info("Starting password recovery session")
+            else:
+                # Stopping current session
+                self.ui.startButton.setText("Start")
+                self.ui.statusLabel.setText("Stopped")
+                logger.info("Stopping password recovery session")
 
         except Exception as e:
             logger.error(f"Error in start button handler: {str(e)}")
@@ -283,30 +308,122 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def test_button_clicked(self):
         try:
-            # Get current parameters
-            password = self.ui.comp1Input.text()  # Test with first component
-            email = self.ui.emailInput.text()
-            mnemonic = self.ui.mnemonicInput.text()
-            address = self.ui.addressInput.text()
-
-            # Run single test using model
-            attempt = self.model.process_attempt(password)
-            test_address = attempt.password
-            result = "True" if attempt.distance == 0 else "False"
-
-            # Update status
-            if result == "True":
-                self.ui.statusLabel.setText(
-                    f"Test SUCCESS! Address matches: {test_address}"
+            if hasattr(self, "running_state") and self.running_state:
+                # Get test attempts from UI (default 100)
+                max_attempts = (
+                    int(self.ui.testAttemptsInput.text())
+                    if self.ui.testAttemptsInput.text()
+                    else 100
                 )
-            else:
-                self.ui.statusLabel.setText(f"Test result: Generated {test_address}")
 
-            logger.info(f"Test completed: {result}")
+                # Get current components
+                comp1 = self.ui.comp1Input.text().strip()
+                comp2 = self.ui.comp2Input.text().strip()
+
+                # Try variations focusing on current position
+                best_distance = float("inf")
+                best_password = None
+                best_address = None
+
+                for attempt in range(max_attempts):
+                    # Generate variations targeting current position
+                    base = comp1 + comp2
+                    variations = []
+
+                    # Try character variations at current position
+                    for (
+                        c
+                    ) in "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz123456789":
+                        if self.current_position < len(base):
+                            var = list(base)
+                            var[self.current_position] = c
+                            variations.append("".join(var))
+
+                    # Try each variation
+                    for password in variations:
+                        attempt = self.model.process_attempt(password)
+                        if attempt.distance < best_distance:
+                            best_distance = attempt.distance
+                            best_password = password
+                            best_address = attempt.password
+
+                            # Update UI with improvement
+                            self.ui.statusLabel.setText(
+                                f"Found better result after {attempt} attempts\n"
+                                f"Password: {best_password}\n"
+                                f"Distance: {best_distance}"
+                            )
+                            return  # Exit on improvement
+
+                self.ui.statusLabel.setText(
+                    f"No improvement found after {max_attempts} attempts"
+                )
+
+            else:
+                # Regular test of current input
+                comp1 = self.ui.comp1Input.text().strip()
+                comp2 = self.ui.comp2Input.text().strip()
+                comp3 = self.ui.comp3Input.text().strip()
+                comp4 = self.ui.comp4Input.text().strip()
+
+                # Combine components without spaces
+                components = []
+                if comp1:
+                    components.append(comp1)
+                if comp2:
+                    components.append(comp2)
+                if comp3:
+                    components.append(comp3)
+                if comp4:
+                    components.append(comp4)
+
+                password = "".join(components)
+
+                # Run single test using model
+                attempt = self.model.process_attempt(password)
+                test_address = attempt.password
+                result = "True" if attempt.distance == 0 else "False"
+
+                # Update status
+                if result == "True":
+                    self.ui.statusLabel.setText(
+                        f"Test SUCCESS! Address matches: {test_address}"
+                    )
+                else:
+                    self.ui.statusLabel.setText(
+                        f"Test result: Generated {test_address}\n"
+                        f"Distance: {attempt.distance}"
+                    )
+
+                logger.info(f"Test completed with password: {password}")
+                logger.info(f"Result: {result}")
 
         except Exception as e:
             logger.error(f"Error in test button handler: {str(e)}")
             self.ui.statusLabel.setText(f"Test error: {str(e)}")
+
+    def process_next_attempt(self):
+        """Process the next attempt in the running sequence"""
+        try:
+            # Get next combination from the model
+            attempt = self.model.next_attempt()
+            if attempt:
+                # Update UI with current attempt info
+                self.ui.statusLabel.setText(f"Testing: {attempt.password}")
+                # Process the attempt
+                result = self.model.process_attempt(attempt.password)
+                # Update UI with result
+                if result.distance == 0:
+                    self.ui.statusLabel.setText(
+                        f"SUCCESS! Found password: {attempt.password}"
+                    )
+                else:
+                    self.ui.statusLabel.setText(
+                        f"Attempt failed. Distance: {result.distance}"
+                    )
+        except Exception as e:
+            logger.error(f"Error processing next attempt: {str(e)}")
+            self.ui.statusLabel.setText(f"Error: {str(e)}")
 
     def update_statistics(self, stats: dict):
         try:
@@ -380,6 +497,15 @@ class MainWindow(QtWidgets.QMainWindow):
         except Exception as e:
             logger.error(f"Error in close event: {str(e)}")
             event.accept()
+
+    def on_check_result(self, result):
+        """Handle check results from model"""
+        found_it, password, current_distance, best_distance, best_password = result
+
+        # Update UI with latest results
+        self.ui.statusLabel.setText(
+            f"Current: {current_distance:.4f}\n" f"Best: {best_distance:.4f}"
+        )
 
 
 class PassRecoveryMain:

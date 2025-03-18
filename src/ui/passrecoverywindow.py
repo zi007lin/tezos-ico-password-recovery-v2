@@ -17,7 +17,11 @@ class PassRecoveryWindow(object):
         PassRecoveryWindow.resize(800, 600)
         icon = QtGui.QIcon()
         icon.addPixmap(
-            QtGui.QPixmap("assets/tz_recovery.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off
+            QtGui.QPixmap(
+                "C:\\git\\tezos-ico-password-recovery-v2\\src\\ui\\assets/tz_recovery.ico"
+            ),
+            QtGui.QIcon.Normal,
+            QtGui.QIcon.Off,
         )
         PassRecoveryWindow.setWindowIcon(icon)
         self.centralwidget = QtWidgets.QWidget(PassRecoveryWindow)
@@ -144,6 +148,18 @@ class PassRecoveryWindow(object):
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionExit)
         self.menubar.addAction(self.menuFile.menuAction())
+
+        # Add test attempts input and label
+        self.testAttemptsInput = QtWidgets.QLineEdit(self.centralwidget)
+        self.testAttemptsInput.setObjectName("testAttemptsInput")
+        self.testAttemptsInput.setText("100")
+
+        self.testAttemptsLabel = QtWidgets.QLabel(self.centralwidget)
+        self.testAttemptsLabel.setText("Test Attempts:")
+
+        # Add to your existing gridLayout
+        self.gridLayout.addWidget(self.testAttemptsLabel, 8, 0)
+        self.gridLayout.addWidget(self.testAttemptsInput, 8, 1)
 
         self.retranslateUi(PassRecoveryWindow)
         QtCore.QMetaObject.connectSlotsByName(PassRecoveryWindow)

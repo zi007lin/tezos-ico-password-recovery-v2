@@ -2,6 +2,9 @@ import yaml
 import os
 from dataclasses import dataclass
 import logging
+import argparse
+from typing import Dict, Any
+from pathlib import Path
 
 logger = logging.getLogger("TezosPasswordFinder")
 
@@ -88,35 +91,95 @@ def get_env_config():
     return env_config if env_config else None
 
 
-def load_config(exe_path=None):
-    """Load configuration with priority: ENV > YAML > Command Line"""
-    config = {}
+def load_config() -> Dict[str, Any]:
+    """
+    Load configuration with precedence:
+    1. Config file (config/config.yml)
+    2. Command line arguments
+    3. Environment variables
+    """
+    config = {
+        "email": "",
+        "mnemonic": "",
+        "address": "",
+        "comp1": "",
+        "comp2": "",
+        "comp3": "",
+        "comp4": "",
+    }
 
-    try:
-        # First try environment variables (highest priority)
-        env_config = get_env_config()
-        if env_config:
-            config.update(env_config)
-            logger.info("Using environment variables for configuration")
+    # 3. Load from environment variables (lowest precedence)
+    env_mapping = {
+        "TEZOS_EMAIL": "email",
+        "TEZOS_MNEMONIC": "mnemonic",
+        "TEZOS_ADDRESS": "address",
+        "TEZOS_COMP1": "comp1",
+        "TEZOS_COMP2": "comp2",
+        "TEZOS_COMP3": "comp3",
+        "TEZOS_COMP4": "comp4",
+    }
 
-        # Then try YAML file
-        if not config:  # Only if no env vars found
-            if exe_path:
-                config_dir = os.path.dirname(exe_path)
-            else:
-                config_dir = os.path.dirname(os.path.abspath(__file__))
+    for env_var, config_key in env_mapping.items():
+        if os.getenv(env_var):
+            config[config_key] = os.getenv(env_var)
+            logger.info(f"Loaded {config_key} from environment variable {env_var}")
 
-            config_path = os.path.join(config_dir, "TezosPasswordRecovery.yml")
+    # 2. Load from command line arguments (middle precedence)
+    parser = argparse.ArgumentParser(description="Tezos Password Recovery")
+    parser.add_argument("--email", help="ICO registration email")
+    parser.add_argument("--mnemonic", help="Mnemonic phrase")
+    parser.add_argument("--address", help="Tezos address (tz1...)")
+    parser.add_argument("--comp1", help="First password component")
+    parser.add_argument("--comp2", help="Second password component")
+    parser.add_argument("--comp3", help="Third password component")
+    parser.add_argument("--comp4", help="Fourth password component")
 
-            if os.path.exists(config_path):
-                with open(config_path, "r") as f:
-                    yaml_config = yaml.safe_load(f)
-                    if yaml_config:
-                        config.update(yaml_config)
-                        logger.info(f"Using configuration from {config_path}")
+    args = parser.parse_args()
 
-    except ValueError as e:
-        logger.error(f"Error processing attempt: {e}")
-        # Add more context if needed
+    # Update config with command line arguments if provided
+    for key, value in vars(args).items():
+        if value is not None:
+            config[key] = value
+            logger.info(f"Loaded {key} from command line argument")
 
-    return config if config else None
+    # 1. Load from config.yml (highest precedence)
+    current_dir = Path(os.getcwd())
+    logger.info(f"Current working directory: {current_dir}")
+
+    possible_config_paths = [
+        current_dir / "config" / "config.yml",  # ./config/config.yml
+        current_dir.parent / "config" / "config.yml",  # ../config/config.yml
+        Path.home() / ".config" / "tezos" / "config.yml",  # ~/.config/tezos/config.yml
+    ]
+
+    config_loaded = False
+    for config_path in possible_config_paths:
+        logger.info(f"Trying config path: {config_path}")
+        try:
+            with open(config_path, "r") as f:
+                yaml_config = yaml.safe_load(f)
+                if yaml_config:
+                    for key in config.keys():
+                        if yaml_config.get(key):
+                            config[key] = yaml_config[key]
+                            logger.info(f"Loaded {key} from config file")
+                    config_loaded = True
+                    logger.info(f"Successfully loaded config from {config_path}")
+                    break
+        except FileNotFoundError:
+            logger.warning(f"Config file not found at {config_path}")
+        except yaml.YAMLError as e:
+            logger.error(f"Error parsing config file {config_path}: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error reading config file {config_path}: {e}")
+
+    if not config_loaded:
+        logger.warning("No config file was successfully loaded")
+
+    # Log final configuration (excluding sensitive data)
+    logger.info(
+        "Final configuration loaded with values for: "
+        + ", ".join(k for k, v in config.items() if v)
+    )
+
+    return config

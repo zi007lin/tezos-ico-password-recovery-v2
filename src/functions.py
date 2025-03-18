@@ -251,16 +251,78 @@ def component_mixer(
     return candidate_count, candidate_used, pwd_list
 
 
+def calculate_weighted_distance(generated: str, target: str) -> float:
+    """
+    Calculate weighted Levenshtein distance between generated and target addresses.
+    Gives more weight to:
+    1. Matching characters at the start (more likely to be correct)
+    2. Matching numbers (less common in addresses)
+    3. Matching case (uppercase/lowercase differences are significant)
+    """
+    if not generated or not target:
+        return float("inf")
+
+    total_weight = 0
+    max_length = max(len(generated), len(target))
+
+    # Store detailed distance info for logging
+    distance_details = []
+
+    # Compare characters with position-based weights
+    for i in range(max_length):
+        if i >= len(generated) or i >= len(target):
+            # Missing character penalty
+            total_weight += 1.0
+            distance_details.append(f"Pos {i}: Missing char (+1.0)")
+            continue
+
+        if generated[i] != target[i]:
+            # Position-based weights (earlier positions matter more)
+            position_weight = 1.0 - (i / max_length) * 0.5
+
+            # Character type weights
+            if generated[i].isdigit() or target[i].isdigit():
+                # Numbers are less common, so mismatches are more significant
+                char_weight = 1.5
+            elif generated[i].isupper() or target[i].isupper():
+                # Case differences are significant
+                char_weight = 1.2
+            else:
+                char_weight = 1.0
+
+            weight = position_weight * char_weight
+            total_weight += weight
+            distance_details.append(
+                f"Pos {i}: '{generated[i]}' ≠ '{target[i]}' "
+                f"(pos_weight={position_weight:.2f}, char_weight={char_weight:.1f}, total={weight:.2f})"
+            )
+        else:
+            distance_details.append(
+                f"Pos {i}: '{generated[i]}' = '{target[i]}' (match)"
+            )
+
+    return round(total_weight, 2), distance_details
+
+
+def calculate_char_distance(generated: str, target: str) -> float:
+    """Calculate distance between two Base58 characters"""
+    BASE58_CHARS = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+
+    try:
+        pos1 = BASE58_CHARS.index(generated)
+        pos2 = BASE58_CHARS.index(target)
+        direct_distance = abs(pos1 - pos2)
+        wrap_distance = 58 - direct_distance
+        return min(direct_distance, wrap_distance) / 58.0
+    except ValueError:
+        return 1.0
+
+
 def check(password, email, mnemonic, address, iters=2048):
     try:
-        # Log the password components
-        logger.info(f"\nTrying password: {password}")
-        # Try to split password into components for logging
-        parts = password.split()
-        if len(parts) > 0:
-            logger.info(f"Components found in password:")
-            for i, part in enumerate(parts, 1):
-                logger.info(f"Comp{i}: {part}")
+        # Log all components with debug info
+        logger.info("\nTrying password combination:")
+        logger.info(f"Full password: '{password}'")
 
         # Convert mnemonic to bytes if it's a string
         mnemonic_bytes = mnemonic.encode("utf8")
@@ -284,30 +346,74 @@ def check(password, email, mnemonic, address, iters=2048):
         h.update(pk)
         pkh = h.digest()
 
-        # Generate Tezos address with tz1 prefix
-        prefix = bytes([6, 161, 159])
-        quick_address = bitcoin.bin_to_b58check(prefix + pkh)
+        # Generate Tezos address
+        quick_address = bitcoin.bin_to_b58check(pkh, magicbyte=0)
+        quick_address = "tz1" + quick_address[1:]
 
-        # Calculate and log the distance (number of different characters)
-        distance = sum(1 for a, b in zip(quick_address, address) if a != b)
-        logger.info(f"Generated address: {quick_address}")
-        logger.info(f"Target address:    {address}")
-        logger.info(f"Distance: {distance} characters different\n")
+        # Find matching prefix (frozen characters)
+        start_pos = 3  # Skip "tz1"
+        match_length = 0
+
+        for i in range(start_pos, min(len(quick_address), len(address))):
+            if quick_address[i] == address[i]:
+                match_length += 1
+            else:
+                break
+
+        # Calculate weighted distance for non-frozen part
+        current_distance = 0
+        for i in range(start_pos + match_length, len(address)):
+            position_weight = (
+                1.0
+                - (
+                    (i - start_pos - match_length)
+                    / (len(address) - start_pos - match_length)
+                )
+                * 0.5
+            )
+            char_distance = calculate_char_distance(quick_address[i], address[i])
+            current_distance += char_distance * position_weight
+
+        # Store best distance if not exists
+        if not hasattr(check, "best_distance"):
+            check.best_distance = float("inf")
+            check.best_password = None
+
+        # Update best distance if better
+        if current_distance < check.best_distance:
+            check.best_distance = current_distance
+            check.best_password = password
+            print(f"\nImprovement found!")
+            print(f"Last tried: {password}")
+            print(f"Frozen prefix: {address[:start_pos + match_length]}")
+            print(f"Next target: '{address[start_pos + match_length]}'")
+            print(f"Current distance: {current_distance:.4f}")
+            print(f"Best distance: {check.best_distance:.4f}")
+            if check.best_password:
+                print(f"Best password: {check.best_password}")
+            print("-" * 40)
 
         if address == quick_address:
             found_it = "True"
-            print("found it ")
-            print("Your password is: ", password)
+            print("\nFOUND IT!")
+            print(f"Password: {password}")
             with open("password.lst", "a") as z:
                 z.write(password + "\n")
         else:
             found_it = "False"
 
-        return (found_it, password)
+        # Return tuple with all necessary info
+        return (
+            found_it,
+            password,
+            current_distance,
+            check.best_distance,
+            check.best_password,
+        )
 
     except Exception as e:
         logger.error(f"Error in check function: {str(e)}")
-        return ("False", "")
+        return ("False", "", float("inf"), float("inf"), None)
 
 
 def pwd_len(

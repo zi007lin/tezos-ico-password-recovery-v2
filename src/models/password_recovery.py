@@ -16,6 +16,8 @@ from functions import (
 )
 import sys
 import os
+from PyQt5.QtCore import QObject, pyqtSignal
+import time
 
 # Add the project root directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -48,38 +50,67 @@ class PasswordAttempt:
     is_improvement: bool = False
 
 
-class PasswordRecoveryModel:
-    """Model for password recovery process"""
+class PasswordRecoveryModel(QObject):
+    check_signal = pyqtSignal(tuple)  # Signal for check results
 
-    def __init__(self):
-        # Core parameters
-        self.email: str = ""
-        self.mnemonic: str = ""
-        self.target_address: str = ""
-
-        # Components and constraints
+    def __init__(self, signal_rate=15):
+        super().__init__()
+        self.signal_rate = signal_rate
+        self.last_signal_time = 0
+        self.email = ""
+        self.mnemonic = ""
+        self.address = ""
         self.components = PasswordComponents()
-        self.min_length: int = 8
-        self.max_length: int = 32
 
-        # Runtime state
-        self.best_attempt: Optional[PasswordAttempt] = None
-        self.best_distance: float = float("inf")
-        self.total_attempts: int = 0
-        self.start_time: Optional[datetime] = None
-        self._is_running: bool = False
+        # Initialize caches
+        self._component_cache = {}
+        self._distance_cache = {}
+        self._is_running = False
+        self.start_time = None
+        self.total_attempts = 0
+        self.best_distance = float("inf")
+        self.best_attempt = None
 
-        # Cache for optimization
-        self._component_cache: Dict[str, List[str]] = {}
-        self._distance_cache: Dict[str, float] = {}
+    def process_attempt(self, password):
+        try:
+            # Run the check
+            found_it, pwd, current_distance, best_distance, best_password = check(
+                password, self.email, self.mnemonic, self.address
+            )
 
-        logger.info("Password Recovery Model initialized")
+            # Create attempt object with all required fields
+            attempt = PasswordAttempt(
+                password=password,
+                components=self.components,  # Current components
+                distance=current_distance,
+                address=self.address,
+                timestamp=datetime.now(),
+                is_improvement=(current_distance < self.best_distance),
+            )
+
+            # Check if we should emit signal based on rate
+            current_time = time.time()
+            if current_time - self.last_signal_time >= (1.0 / self.signal_rate):
+                self.check_signal.emit(
+                    (found_it, pwd, current_distance, best_distance, best_password)
+                )
+                self.last_signal_time = current_time
+
+            return attempt
+
+        except Exception as e:
+            logger.error(f"Error in process_attempt: {str(e)}")
+            return None
+
+    def set_signal_rate(self, rate):
+        """Update signal rate (signals per second)"""
+        self.signal_rate = max(1, min(rate, 60))  # Limit between 1-60 Hz
 
     def set_parameters(self, email: str, mnemonic: str, address: str) -> None:
         """Set core parameters for recovery"""
         self.email = email
         self.mnemonic = mnemonic
-        self.target_address = address
+        self.address = address
         logger.debug(f"Parameters set - Target address: {address[:8]}...")
 
     def set_components(self, comp1: str, comp2: str, comp3: str, comp4: str) -> None:
@@ -99,55 +130,6 @@ class PasswordRecoveryModel:
         self._is_running = True
         self._clear_cache()
         logger.info("New session started")
-
-    def process_attempt(self, password: str) -> PasswordAttempt:
-        """Process a password attempt and return results"""
-        try:
-            result, address = check(
-                password=password,
-                email=self.email,
-                mnemonic=self.mnemonic,
-                address=self.target_address,
-            )
-
-            # Use the optimized _calculate_distance method
-            distance = self._calculate_distance(address)
-
-            # Create current attempt
-            current_attempt = PasswordAttempt(
-                password=password,
-                components=self.components,
-                distance=distance,
-                address=address,
-                timestamp=datetime.now(),
-                is_improvement=False,
-            )
-
-            # Check if this is an improvement
-            is_improvement = distance < self.best_distance
-            if is_improvement:
-                self.best_distance = distance
-                self.best_attempt = current_attempt
-                self.best_attempt.is_improvement = True
-                logger.info(
-                    f"New best password found: {password} (distance: {distance})"
-                )
-
-            self.total_attempts += 1
-
-            # Return current attempt instead of best attempt
-            return current_attempt
-
-        except Exception as e:
-            logger.error(f"Error processing attempt: {str(e)}")
-            return PasswordAttempt(
-                password=password,
-                components=self.components,
-                distance=float("inf"),
-                address="",
-                timestamp=datetime.now(),
-                is_improvement=False,
-            )
 
     def get_statistics(self) -> Dict:
         """Get current statistics"""
@@ -181,19 +163,19 @@ class PasswordRecoveryModel:
 
     def _calculate_distance(self, generated_address: str) -> float:
         """Calculate distance between generated and target address"""
-        if not generated_address or not self.target_address:
+        if not generated_address or not self.address:
             return float("inf")
 
         # Skip the common prefix (tz1) in the comparison
         TEZOS_PREFIX = "tz1"
         if not generated_address.startswith(
             TEZOS_PREFIX
-        ) or not self.target_address.startswith(TEZOS_PREFIX):
+        ) or not self.address.startswith(TEZOS_PREFIX):
             return float("inf")
 
         # Compare only the part after the prefix
         gen_addr = generated_address[len(TEZOS_PREFIX) :]
-        target_addr = self.target_address[len(TEZOS_PREFIX) :]
+        target_addr = self.address[len(TEZOS_PREFIX) :]
 
         # Log the addresses without prefix
         logger.info(f"Generated address (no prefix): {gen_addr}")
