@@ -7,7 +7,7 @@ import unicodedata
 import bitcoin
 import pysodium
 from hashlib import blake2b, pbkdf2_hmac
-from functions import (
+from src.functions import (
     saltmixer,
     sequenzerwithvsalt,
     sequenzernovsalt,
