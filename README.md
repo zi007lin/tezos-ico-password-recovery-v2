@@ -2,7 +2,7 @@
 
 ![Tezos Logo](assets/tz_recovery.png)
 
-A powerful, multi-threaded tool to learn MVC reverse designed pattern and to help recover lost Tezos ICO passwords through advanced pattern matching and brute force techniques.
+A powerful, multi-threaded tool designed to demonstrate MVC pattern implementation while helping recover lost Tezos ICO passwords through advanced pattern matching and brute force techniques.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.6+](https://img.shields.io/badge/python-3.6+-blue.svg)](https://www.python.org/downloads/)
