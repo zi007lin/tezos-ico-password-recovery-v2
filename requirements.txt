@@ -1,0 +1,5 @@
+PyQt5>=5.15.9
+psutil>=5.8.0
+PyYAML>=5.4.1
+bitcoin>=1.1.42
+pysodium>=0.7.9
