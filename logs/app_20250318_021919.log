@@ -1,0 +1,5 @@
+2025-03-18 02:19:19,360 - TezosPasswordFinder - INFO - Initializing Password Recovery Main
+2025-03-18 02:19:19,361 - TezosPasswordFinder - INFO - Password Recovery Model initialized
+2025-03-18 02:19:20,361 - TezosPasswordFinder - DEBUG - UI connections established
+2025-03-18 02:19:20,361 - TezosPasswordFinder - INFO - PassRecoveryWindow initialized
+2025-03-18 02:19:20,414 - TezosPasswordFinder - INFO - UI initialized with splash screen

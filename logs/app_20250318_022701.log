@@ -1,0 +1,9 @@
+2025-03-18 02:27:01,541 - TezosPasswordFinder - INFO - Initializing Password Recovery Main
+2025-03-18 02:27:01,544 - TezosPasswordFinder - INFO - Password Recovery Model initialized
+2025-03-18 02:27:02,559 - TezosPasswordFinder - DEBUG - Parameters set - Target address: tz1axXoW...
+2025-03-18 02:27:02,560 - TezosPasswordFinder - DEBUG - Components updated
+2025-03-18 02:27:02,561 - TezosPasswordFinder - DEBUG - Caches cleared
+2025-03-18 02:27:02,562 - TezosPasswordFinder - INFO - Initial parameters set in UI
+2025-03-18 02:27:02,562 - TezosPasswordFinder - DEBUG - UI connections established
+2025-03-18 02:27:02,563 - TezosPasswordFinder - INFO - PassRecoveryWindow initialized
+2025-03-18 02:27:02,606 - TezosPasswordFinder - INFO - UI initialized with splash screen

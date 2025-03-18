@@ -3,17 +3,14 @@ import os
 
 
 def build_ui():
-    # Get the directory of this script
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    """Build UI files from .ui to .py"""
+    # Change this line to look in src/ui instead of just ui
+    ui_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "src", "ui")
+    print(f"Building UI files from: {ui_dir}")
 
-    # Path to UI files directory
-    ui_dir = os.path.join(current_dir, "ui")
-
-    # Ensure ui directory exists
     if not os.path.exists(ui_dir):
-        os.makedirs(ui_dir)
-
-    print("Building UI files from:", ui_dir)
+        print(f"UI directory not found: {ui_dir}")
+        return
 
     # Input and output paths
     ui_file = os.path.join(ui_dir, "passrecoverywindow.ui")

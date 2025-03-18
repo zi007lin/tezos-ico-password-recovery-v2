@@ -17,6 +17,41 @@ from ui.passrecoverywindow import PassRecoveryWindow  # Updated import name
 from config import load_config
 
 
+# Define a function to get absolute paths to assets
+def get_asset_path(filename):
+    """Get the absolute path to an asset file, searching in multiple possible locations."""
+    # Get the directory where the script is located
+    if getattr(sys, "frozen", False):
+        # If running as compiled executable
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        # If running as script
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Define possible asset locations (in order of preference)
+    possible_locations = [
+        os.path.join(base_dir, "assets", filename),  # src/assets/filename
+        os.path.join(
+            os.path.dirname(base_dir), "assets", filename
+        ),  # project_root/assets/filename
+        os.path.join(base_dir, filename),  # src/filename
+        os.path.join(os.path.dirname(base_dir), filename),  # project_root/filename
+    ]
+
+    # Return the first path that exists
+    for path in possible_locations:
+        if os.path.exists(path):
+            print(f"Found asset: {filename} at {path}")
+            return path
+
+    # If not found, log the error and return the most likely path
+    print(f"WARNING: Asset not found: {filename}")
+    print(f"Searched in: {possible_locations}")
+    return os.path.join(
+        base_dir, "assets", filename
+    )  # Return a default path for debugging
+
+
 # Set up logging
 def setup_logger():
     if not os.path.exists("logs"):
@@ -386,10 +421,17 @@ class PassRecoveryMain:
                 base_path = os.path.dirname(os.path.abspath(__file__))
 
             # Create and show splash screen
-            splash_path = os.path.abspath(
-                os.path.join(base_path, "assets", "tz_recovery.png")
-            )
+            splash_path = get_asset_path("tz_recovery.png")
+            print(f"Loading splash image from: {splash_path}")
+
+            # Force load the image and check if it's valid
             splash_pix = QPixmap(splash_path)
+            if splash_pix.isNull():
+                print(f"ERROR: Failed to load splash image from {splash_path}")
+            else:
+                print(
+                    f"Splash image loaded successfully: {splash_pix.width()}x{splash_pix.height()}"
+                )
 
             class MovableSplash(QSplashScreen):
                 def mousePressEvent(self, event):
@@ -416,10 +458,16 @@ class PassRecoveryMain:
             self.app.processEvents()
 
             # Set up main window
-            icon_path = os.path.abspath(
-                os.path.join(base_path, "assets", "tz_recovery.ico")
-            )
+            icon_path = get_asset_path("tz_recovery.ico")
+            print(f"Loading icon from: {icon_path}")
+
+            # Force load the icon and check if it's valid
             app_icon = QIcon(icon_path)
+            if app_icon.isNull():
+                print(f"ERROR: Failed to load icon from {icon_path}")
+            else:
+                print("Icon loaded successfully")
+
             self.app.setWindowIcon(app_icon)
 
             if sys.platform == "win32":
@@ -439,7 +487,7 @@ class PassRecoveryMain:
 
             logger.info("UI initialized with splash screen")
         except Exception as e:
-            logger.error(f"Error initializing UI: {str(e)}")
+            logger.error(f"Error initializing UI: {str(e)}", exc_info=True)
             sys.exit(1)
 
     def start_recovery(self, params=None):
@@ -535,6 +583,11 @@ def main():
 
     # Remove None values
     params = {k: v for k, v in params.items() if v is not None}
+
+    print(f"Current working directory: {os.getcwd()}")
+    print(f"Script location: {os.path.dirname(os.path.abspath(__file__))}")
+    print(f"Icon path: {get_asset_path('tz_recovery.ico')}")
+    print(f"Splash path: {get_asset_path('tz_recovery.png')}")
 
     recovery = PassRecoveryMain(show_ui=not args.noui, params=params)
 

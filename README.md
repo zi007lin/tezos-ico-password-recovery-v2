@@ -224,3 +224,16 @@ Project Link: [https://github.com/zilin/tezos-ico-password-recovery-v2](https://
 
 ⭐️ If this tool helped you recover your Tezos ICO password, please consider starring the repository!
 ```
+This application is built using:
+
+- **Python 3.8+** as the core programming language
+- **PyQt5** for the cross-platform desktop UI
+- **Multi-threading** for performance optimization, allowing UI responsiveness during intensive operations
+- **Model-View-Controller (MVC)** architecture:
+  - **Model**: Handles password recovery logic and state management
+  - **View**: PyQt5-based UI components
+  - **Controller**: Manages interaction between model and view
+- **Object-oriented design** with clear separation of concerns
+- **Comprehensive logging** for debugging and analysis
+
+The application can be run directly from Python or compiled into standalone executables for Windows, macOS, and Linux using PyInstaller.
