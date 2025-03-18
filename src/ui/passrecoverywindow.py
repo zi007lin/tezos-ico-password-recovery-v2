@@ -16,7 +16,9 @@ class PassRecoveryWindow(object):
         PassRecoveryWindow.setObjectName("PassRecoveryWindow")
         PassRecoveryWindow.resize(800, 600)
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap("C:\\git\\tezos-ico-password-recovery-v2\\src\\ui\\assets/tz_recovery.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(
+            QtGui.QPixmap("assets/tz_recovery.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off
+        )
         PassRecoveryWindow.setWindowIcon(icon)
         self.centralwidget = QtWidgets.QWidget(PassRecoveryWindow)
         self.centralwidget.setObjectName("centralwidget")
@@ -148,12 +150,16 @@ class PassRecoveryWindow(object):
 
     def retranslateUi(self, PassRecoveryWindow):
         _translate = QtCore.QCoreApplication.translate
-        PassRecoveryWindow.setWindowTitle(_translate("PassRecoveryWindow", "Tezos Password Recovery"))
+        PassRecoveryWindow.setWindowTitle(
+            _translate("PassRecoveryWindow", "Tezos Password Recovery")
+        )
         self.inputGroup.setTitle(_translate("PassRecoveryWindow", "Input Parameters"))
         self.emailLabel.setText(_translate("PassRecoveryWindow", "Email:"))
         self.mnemonicLabel.setText(_translate("PassRecoveryWindow", "Mnemonic:"))
         self.addressLabel.setText(_translate("PassRecoveryWindow", "Address:"))
-        self.componentsGroup.setTitle(_translate("PassRecoveryWindow", "Password Components"))
+        self.componentsGroup.setTitle(
+            _translate("PassRecoveryWindow", "Password Components")
+        )
         self.comp1Label.setText(_translate("PassRecoveryWindow", "Component 1:"))
         self.comp2Label.setText(_translate("PassRecoveryWindow", "Component 2:"))
         self.comp3Label.setText(_translate("PassRecoveryWindow", "Component 3:"))
@@ -166,9 +172,15 @@ class PassRecoveryWindow(object):
         self.attemptsLabel.setText(_translate("PassRecoveryWindow", "Attempts: 0"))
         self.distanceLabel.setText(_translate("PassRecoveryWindow", "Best Distance: ∞"))
         self.speedLabel.setText(_translate("PassRecoveryWindow", "Speed: 0/s"))
-        self.currentCompLabel.setText(_translate("PassRecoveryWindow", "Current Components: None"))
-        self.bestResultLabel.setText(_translate("PassRecoveryWindow", "Best Result: None"))
-        self.lastAttemptLabel.setText(_translate("PassRecoveryWindow", "Last Attempt: None"))
+        self.currentCompLabel.setText(
+            _translate("PassRecoveryWindow", "Current Components: None")
+        )
+        self.bestResultLabel.setText(
+            _translate("PassRecoveryWindow", "Best Result: None")
+        )
+        self.lastAttemptLabel.setText(
+            _translate("PassRecoveryWindow", "Last Attempt: None")
+        )
         self.statusLabel.setText(_translate("PassRecoveryWindow", "Status: Ready"))
         self.menuFile.setTitle(_translate("PassRecoveryWindow", "File"))
         self.actionNewSession.setText(_translate("PassRecoveryWindow", "New Session"))

@@ -146,8 +146,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, model, params=None, parent=None):
         super().__init__(parent)
         self.model = model
-        self.ui = PassRecoveryWindow()  # Updated class name
-        self.ui.setupUi(self)
+        self.ui = PassRecoveryWindow()
+        self.ui.setupUi(self)  # Pass self as the argument
 
         # Recovery thread
         self.recovery_thread = None

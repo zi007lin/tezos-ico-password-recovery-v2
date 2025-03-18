@@ -7,6 +7,13 @@ import time
 import re
 import os
 from hashlib import pbkdf2_hmac
+import logging
+from PyQt5.QtCore import pyqtSignal
+from PyQt5 import QtWidgets
+
+# Set up logging
+logger = logging.getLogger("TezosPasswordFinder")
+logger.setLevel(logging.INFO)
 
 
 def saltmixer(var, salt_num, salt_n, salt_char_multi):
@@ -245,33 +252,62 @@ def component_mixer(
 
 
 def check(password, email, mnemonic, address, iters=2048):
-    # Get first few characters of target address
-    target_prefix = address[:10]  # First part of tz1... address
+    try:
+        # Log the password components
+        logger.info(f"\nTrying password: {password}")
+        # Try to split password into components for logging
+        parts = password.split()
+        if len(parts) > 0:
+            logger.info(f"Components found in password:")
+            for i, part in enumerate(parts, 1):
+                logger.info(f"Comp{i}: {part}")
 
-    salt = unicodedata.normalize("NFKD", (email + password)).encode("utf8")
-    mnemonic_bytes = mnemonic.encode("utf8")  # Convert mnemonic to bytes
-    seed = pbkdf2_hmac(
-        hash_name="sha512",
-        password=mnemonic_bytes,  # Use encoded mnemonic
-        salt=b"mnemonic" + salt,
-        iterations=iters,
-    )
+        # Convert mnemonic to bytes if it's a string
+        mnemonic_bytes = mnemonic.encode("utf8")
 
-    # Quick check - if seed doesn't produce matching prefix, skip full address generation
-    pk, sk = pysodium.crypto_sign_seed_keypair(seed[0:32])
-    h = blake2b(digest_size=20)
-    h.update(pk)
-    pkh = h.digest()
-    quick_address = bitcoin.bin_to_b58check(pkh, magicbyte=434591)
+        # Normalize inputs
+        salt = unicodedata.normalize("NFKD", (email + password)).encode("utf8")
 
-    if not quick_address.startswith(target_prefix):
-        return ("False", quick_address)
+        # Generate seed using PBKDF2
+        seed = pbkdf2_hmac(
+            hash_name="sha512",
+            password=mnemonic_bytes,
+            salt=b"mnemonic" + salt,
+            iterations=iters,
+        )
 
-    # Only do full verification if prefix matches
-    if address == quick_address:
-        return ("True", quick_address)
+        # Generate Ed25519 key pair
+        pk, sk = pysodium.crypto_sign_seed_keypair(seed[0:32])
 
-    return ("False", quick_address)
+        # Generate public key hash using BLAKE2b
+        h = blake2b(digest_size=20)
+        h.update(pk)
+        pkh = h.digest()
+
+        # Generate Tezos address with tz1 prefix
+        prefix = bytes([6, 161, 159])
+        quick_address = bitcoin.bin_to_b58check(prefix + pkh)
+
+        # Calculate and log the distance (number of different characters)
+        distance = sum(1 for a, b in zip(quick_address, address) if a != b)
+        logger.info(f"Generated address: {quick_address}")
+        logger.info(f"Target address:    {address}")
+        logger.info(f"Distance: {distance} characters different\n")
+
+        if address == quick_address:
+            found_it = "True"
+            print("found it ")
+            print("Your password is: ", password)
+            with open("password.lst", "a") as z:
+                z.write(password + "\n")
+        else:
+            found_it = "False"
+
+        return (found_it, password)
+
+    except Exception as e:
+        logger.error(f"Error in check function: {str(e)}")
+        return ("False", "")
 
 
 def pwd_len(
@@ -379,3 +415,25 @@ def comp_create(
                     comp_part_lst.append(comp.upper())
 
     return comp_part_lst
+
+
+class PassRecoveryWindow(QtWidgets.QMainWindow):
+    addressGenerated = pyqtSignal(str)
+
+    def __init__(self):
+        super().__init__()
+        self.setup_ui()
+        self.addressGenerated.connect(self.updateGeneratedAddressLabel)
+
+    def setup_ui(self):
+        self.generatedAddressLabel = QtWidgets.QLabel("Generated Address: None")
+        # Add the label to your layout
+        # self.layout.addWidget(self.generatedAddressLabel)
+
+    def updateGeneratedAddressLabel(self, address):
+        self.generatedAddressLabel.setText(f"Generated Address: {address}")
+
+    def some_method(self):
+        # Emit the signal with the generated address
+        quick_address = "some_generated_address"
+        self.addressGenerated.emit(quick_address)

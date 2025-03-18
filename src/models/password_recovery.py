@@ -7,13 +7,18 @@ import unicodedata
 import bitcoin
 import pysodium
 from hashlib import blake2b, pbkdf2_hmac
-from src.functions import (
+from functions import (
     saltmixer,
     sequenzerwithvsalt,
     sequenzernovsalt,
     component_mixer,
     check,
 )
+import sys
+import os
+
+# Add the project root directory to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 logger = logging.getLogger("TezosPasswordFinder")
 
@@ -105,27 +110,33 @@ class PasswordRecoveryModel:
                 address=self.target_address,
             )
 
-            # Calculate distance (you might want to customize this)
-            distance = sum(a != b for a, b in zip(address, self.target_address))
+            # Use the optimized _calculate_distance method
+            distance = self._calculate_distance(address)
 
+            # Create current attempt
+            current_attempt = PasswordAttempt(
+                password=password,
+                components=self.components,
+                distance=distance,
+                address=address,
+                timestamp=datetime.now(),
+                is_improvement=False,
+            )
+
+            # Check if this is an improvement
             is_improvement = distance < self.best_distance
             if is_improvement:
                 self.best_distance = distance
-                self.best_attempt = PasswordAttempt(
-                    password=password,
-                    components=self.components,
-                    distance=distance,
-                    address=address,
-                    timestamp=datetime.now(),
-                    is_improvement=is_improvement,
-                )
+                self.best_attempt = current_attempt
+                self.best_attempt.is_improvement = True
                 logger.info(
                     f"New best password found: {password} (distance: {distance})"
                 )
 
             self.total_attempts += 1
 
-            return self.best_attempt
+            # Return current attempt instead of best attempt
+            return current_attempt
 
         except Exception as e:
             logger.error(f"Error processing attempt: {str(e)}")
@@ -170,16 +181,37 @@ class PasswordRecoveryModel:
 
     def _calculate_distance(self, generated_address: str) -> float:
         """Calculate distance between generated and target address"""
-        # Implement your specific distance calculation
         if not generated_address or not self.target_address:
             return float("inf")
 
-        # Simple Hamming distance for demonstration
-        min_len = min(len(generated_address), len(self.target_address))
-        distance = sum(
-            a != b
-            for a, b in zip(generated_address[:min_len], self.target_address[:min_len])
+        # Skip the common prefix (tz1) in the comparison
+        TEZOS_PREFIX = "tz1"
+        if not generated_address.startswith(
+            TEZOS_PREFIX
+        ) or not self.target_address.startswith(TEZOS_PREFIX):
+            return float("inf")
+
+        # Compare only the part after the prefix
+        gen_addr = generated_address[len(TEZOS_PREFIX) :]
+        target_addr = self.target_address[len(TEZOS_PREFIX) :]
+
+        # Log the addresses without prefix
+        logger.info(f"Generated address (no prefix): {gen_addr}")
+        logger.info(f"Target address (no prefix):    {target_addr}")
+
+        # Calculate meaningful distance based on matching characters
+        common_prefix_length = 0
+        for i, (a, b) in enumerate(zip(gen_addr, target_addr)):
+            if a != b:
+                logger.info(f"First mismatch at position {i}: '{a}' vs '{b}'")
+                break
+            common_prefix_length += 1
+
+        distance = 1.0 / (common_prefix_length + 0.1)
+        logger.info(
+            f"Common prefix length: {common_prefix_length}, Distance: {distance:.2f}"
         )
+
         return distance
 
     def _clear_cache(self) -> None:

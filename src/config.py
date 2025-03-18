@@ -115,7 +115,8 @@ def load_config(exe_path=None):
                         config.update(yaml_config)
                         logger.info(f"Using configuration from {config_path}")
 
-    except Exception as e:
-        logger.error(f"Error loading config: {str(e)}")
+    except ValueError as e:
+        logger.error(f"Error processing attempt: {e}")
+        # Add more context if needed
 
     return config if config else None
